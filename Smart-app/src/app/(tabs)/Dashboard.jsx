@@ -1,280 +1,349 @@
-
-import { StyleSheet, Text, View, ScrollView, Pressable, Image } from 'react-native';
+import React from 'react';
+import { Text, View, ScrollView, Pressable, StatusBar, Platform, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function Dashboard() {
+  const insets = useSafeAreaInsets();
+
+  const ActionCard = ({ icon, title, color, bgColor }) => (
+    <Pressable style={({ pressed }) => [styles.actionCard, pressed && styles.actionCardPressed]}>
+      <View style={[styles.actionIconContainer, { backgroundColor: bgColor }]}>
+        <Ionicons name={icon} size={26} color={color} />
+      </View>
+      <Text style={styles.actionCardTitle}>{title}</Text>
+    </Pressable>
+  );
+
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
+    <View style={styles.container}>
+      <StatusBar barStyle="dark-content" backgroundColor="#F8FAFC" />
+      
+      <View style={[styles.header, { paddingTop: Platform.OS === 'android' ? insets.top + 10 : insets.top }]}>
         <View>
-          <Text style={styles.headerTitle}>Welcome Back!</Text>
+          <Text style={styles.headerGreeting}>Hello, Abdul 👋</Text>
           <Text style={styles.headerSubtitle}>Smart Field Survey</Text>
         </View>
-        <View style={styles.avatar}>
-          <Text style={{color: '#fff', fontWeight: 'bold', fontSize: 18}}>AH</Text>
+        <View style={styles.profileAvatar}>
+          <Text style={styles.profileInitials}>AH</Text>
         </View>
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <Text style={styles.sectionTitle}>Student Details</Text>
-        <View style={styles.studentCard}>
-          <View style={styles.studentInfo}>
-            <Text style={styles.studentName}>Abdul Haque</Text>
-            <Text style={styles.studentDetail}>ID: STD-2026</Text>
-            <Text style={styles.studentDetail}>Course: React Native Assignment</Text>
-            <Text style={styles.studentDetail}>Enroll Number : SUK250054CE012</Text>
+        
+        <View style={styles.idCardContainer}>
+          <View style={styles.idCardHeader}>
+            <View>
+              <Text style={styles.idCardName}>Abdul Haque</Text>
+              <Text style={styles.idCardId}>STD-2026</Text>
+            </View>
+            <View style={styles.statusBadge}>
+              <Text style={styles.statusText}>ACTIVE</Text>
+            </View>
           </View>
-          <View style={styles.badge}>
-            <Text style={styles.badgeText}>Active</Text>
+          
+          <View style={styles.idCardDivider} />
+          
+          <View style={styles.idCardDetails}>
+            <View style={styles.detailRow}>
+              <Ionicons name="school" size={18} color="#93C5FD" />
+              <Text style={styles.detailText}>React Native Assignment</Text>
+            </View>
+            <View style={styles.detailRow}>
+              <Ionicons name="card" size={18} color="#93C5FD" />
+              <Text style={styles.detailText}>SUK250054CE012</Text>
+            </View>
           </View>
         </View>
 
-        <View style={styles.statsContainer}>
+        <View style={styles.statsRow}>
           <View style={styles.statCard}>
-            <Ionicons name="document-text" size={24} color="#0066ff" />
-            <Text style={styles.statNumber}>12</Text>
-            <Text style={styles.statLabel}>Today's Surveys</Text>
+            <View style={[styles.statIconWrapper, { backgroundColor: '#EFF6FF' }]}>
+              <Ionicons name="today" size={22} color="#3B82F6" />
+            </View>
+            <View style={styles.statInfo}>
+              <Text style={styles.statLabel}>Today</Text>
+              <Text style={styles.statValue}>12</Text>
+            </View>
           </View>
+          
           <View style={styles.statCard}>
-            <Ionicons name="checkmark-circle" size={24} color="#22c55e" />
-            <Text style={styles.statNumber}>48</Text>
-            <Text style={styles.statLabel}>Total Completed</Text>
+            <View style={[styles.statIconWrapper, { backgroundColor: '#F0FDF4' }]}>
+              <Ionicons name="checkmark-done-circle" size={22} color="#10B981" />
+            </View>
+            <View style={styles.statInfo}>
+              <Text style={styles.statLabel}>Total Surveys</Text>
+              <Text style={styles.statValue}>48</Text>
+            </View>
           </View>
         </View>
 
         <Text style={styles.sectionTitle}>Quick Actions</Text>
-        <View style={styles.actionsContainer}>
-          <Pressable style={styles.actionCard}>
-            <View style={[styles.iconContainer, { backgroundColor: '#e0f2fe' }]}>
-              <Ionicons name="add" size={24} color="#0284c7" />
-            </View>
-            <Text style={styles.actionText}>New Survey</Text>
-          </Pressable>
-          <Pressable style={styles.actionCard}>
-            <View style={[styles.iconContainer, { backgroundColor: '#f3e8ff' }]}>
-              <Ionicons name="time" size={24} color="#9333ea" />
-            </View>
-            <Text style={styles.actionText}>History</Text>
-          </Pressable>
-          <Pressable style={styles.actionCard}>
-            <View style={[styles.iconContainer, { backgroundColor: '#dcfce7' }]}>
-              <Ionicons name="location" size={24} color="#16a34a" />
-            </View>
-            <Text style={styles.actionText}>Locations</Text>
-          </Pressable>
-          <Pressable style={styles.actionCard}>
-            <View style={[styles.iconContainer, { backgroundColor: '#ffedd5' }]}>
-              <Ionicons name="people" size={24} color="#ea580c" />
-            </View>
-            <Text style={styles.actionText}>Contacts</Text>
-          </Pressable>
+        <View style={styles.actionGrid}>
+          <ActionCard icon="add" title="New Survey" color="#3B82F6" bgColor="#EFF6FF" />
+          <ActionCard icon="time" title="History" color="#8B5CF6" bgColor="#F5F3FF" />
+          <ActionCard icon="location" title="Locations" color="#10B981" bgColor="#F0FDF4" />
+          <ActionCard icon="people" title="Contacts" color="#F59E0B" bgColor="#FFFBEB" />
         </View>
 
-        <Text style={styles.sectionTitle}>Recent Surveys</Text>
-        <View style={styles.recentList}>
-          <View style={styles.recentItem}>
-            <View style={styles.recentIcon}>
-              <Ionicons name="business" size={20} color="#64748b" />
+        <Text style={styles.sectionTitle}>Recent Activity</Text>
+        <View style={styles.recentActivityContainer}>
+          <View style={styles.activityItem}>
+            <View style={styles.activityIcon}>
+              <Ionicons name="business" size={20} color="#64748B" />
             </View>
-            <View style={styles.recentDetails}>
-              <Text style={styles.recentTitle}>City Mall Inspection</Text>
-              <Text style={styles.recentDate}>Today, 10:30 AM</Text>
+            <View style={styles.activityContent}>
+              <Text style={styles.activityTitle}>City Mall Inspection</Text>
+              <Text style={styles.activityTime}>Today, 10:30 AM</Text>
             </View>
-            <View style={[styles.priorityBadge, { backgroundColor: '#fee2e2' }]}>
-              <Text style={[styles.priorityText, { color: '#ef4444' }]}>High</Text>
-            </View>
+            <Ionicons name="chevron-forward" size={20} color="#CBD5E1" />
           </View>
-
-          <View style={[styles.recentItem, { borderBottomWidth: 0 }]}>
-            <View style={styles.recentIcon}>
-              <Ionicons name="business" size={20} color="#64748b" />
+          
+          <View style={[styles.activityItem, styles.activityItemNoBorder]}>
+            <View style={styles.activityIcon}>
+              <Ionicons name="leaf" size={20} color="#64748B" />
             </View>
-            <View style={styles.recentDetails}>
-              <Text style={styles.recentTitle}>Green Park Survey</Text>
-              <Text style={styles.recentDate}>Yesterday, 02:15 PM</Text>
+            <View style={styles.activityContent}>
+              <Text style={styles.activityTitle}>Green Park Survey</Text>
+              <Text style={styles.activityTime}>Yesterday, 02:15 PM</Text>
             </View>
-            <View style={[styles.priorityBadge, { backgroundColor: '#fef3c7' }]}>
-              <Text style={[styles.priorityText, { color: '#f59e0b' }]}>Medium</Text>
-            </View>
+            <Ionicons name="chevron-forward" size={20} color="#CBD5E1" />
           </View>
         </View>
+        
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#F8FAFC',
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    backgroundColor: '#ffffff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#f1f5f9',
+    paddingHorizontal: 24,
+    paddingBottom: 20,
+    backgroundColor: '#F8FAFC',
   },
-  headerTitle: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: '#0f172a',
+  headerGreeting: {
+    fontSize: 26,
+    fontWeight: '800',
+    color: '#0F172A',
+    letterSpacing: -0.5,
   },
   headerSubtitle: {
-    fontSize: 14,
-    color: '#64748b',
-    marginTop: 2,
+    fontSize: 15,
+    fontWeight: '500',
+    color: '#64748B',
+    marginTop: 4,
   },
-  avatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#0f172a',
+  profileAvatar: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: '#2563EB',
     justifyContent: 'center',
     alignItems: 'center',
+    shadowColor: '#2563EB',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  profileInitials: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
   },
   scrollContent: {
-    padding: 20,
-    paddingBottom: 40,
+    paddingHorizontal: 24,
+    paddingBottom: 120,
   },
-  studentCard: {
-    backgroundColor: '#0f172a',
-    borderRadius: 16,
-    padding: 20,
+  idCardContainer: {
+    backgroundColor: '#1E293B',
+    borderRadius: 24,
+    padding: 24,
+    marginBottom: 24,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.15,
+    shadowRadius: 15,
+    elevation: 8,
+  },
+  idCardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 24,
   },
-  studentInfo: {
-    flex: 1,
-  },
-  studentName: {
-    color: '#ffffff',
-    fontSize: 20,
+  idCardName: {
+    fontSize: 22,
     fontWeight: 'bold',
-    marginBottom: 8,
-  },
-  studentDetail: {
-    color: '#94a3b8',
-    fontSize: 14,
+    color: '#FFFFFF',
     marginBottom: 4,
   },
-  badge: {
-    backgroundColor: '#10b981',
+  idCardId: {
+    fontSize: 14,
+    color: '#94A3B8',
+    fontWeight: '500',
+    letterSpacing: 1,
+  },
+  statusBadge: {
+    backgroundColor: '#10B981',
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 20,
+    borderRadius: 12,
   },
-  badgeText: {
-    color: '#ffffff',
-    fontSize: 12,
-    fontWeight: 'bold',
+  statusText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.5,
   },
-  statsContainer: {
+  idCardDivider: {
+    height: 1,
+    backgroundColor: '#334155',
+    marginVertical: 18,
+  },
+  idCardDetails: {
+    gap: 12,
+  },
+  detailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  detailText: {
+    color: '#E2E8F0',
+    fontSize: 15,
+    fontWeight: '500',
+  },
+  statsRow: {
     flexDirection: 'row',
     gap: 16,
-    marginBottom: 24,
+    marginBottom: 30,
   },
   statCard: {
     flex: 1,
-    backgroundColor: '#ffffff',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
     padding: 16,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#f1f5f9',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    shadowColor: '#64748B',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 3,
   },
-  statNumber: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#0f172a',
-    marginVertical: 8,
+  statIconWrapper: {
+    width: 46,
+    height: 46,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  statInfo: {
+    flex: 1,
   },
   statLabel: {
-    fontSize: 14,
-    color: '#64748b',
+    fontSize: 13,
+    color: '#64748B',
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  statValue: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#0F172A',
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#0f172a',
+    fontSize: 19,
+    fontWeight: '800',
+    color: '#0F172A',
     marginBottom: 16,
+    letterSpacing: -0.3,
   },
-  actionsContainer: {
+  actionGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 16,
-    marginBottom: 24,
+    marginBottom: 30,
   },
   actionCard: {
     width: '47%',
-    backgroundColor: '#ffffff',
-    padding: 16,
-    borderRadius: 16,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 20,
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#f1f5f9',
+    shadowColor: '#64748B',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 3,
   },
-  iconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+  actionCardPressed: {
+    opacity: 0.7,
+    transform: [{ scale: 0.98 }],
+  },
+  actionIconContainer: {
+    width: 56,
+    height: 56,
+    borderRadius: 18,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 12,
   },
-  actionText: {
-    fontSize: 14,
+  actionCardTitle: {
+    fontSize: 15,
     fontWeight: '600',
     color: '#334155',
   },
-  recentList: {
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#f1f5f9',
+  recentActivityContainer: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    paddingHorizontal: 20,
+    shadowColor: '#64748B',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 3,
   },
-  recentItem: {
+  activityItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingVertical: 18,
     borderBottomWidth: 1,
-    borderBottomColor: '#f1f5f9',
+    borderBottomColor: '#F1F5F9',
   },
-  recentIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 8,
-    backgroundColor: '#f8fafc',
+  activityItemNoBorder: {
+    borderBottomWidth: 0,
+  },
+  activityIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: '#F8FAFC',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    marginRight: 16,
   },
-  recentDetails: {
+  activityContent: {
     flex: 1,
   },
-  recentTitle: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#0f172a',
+  activityTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#0F172A',
     marginBottom: 4,
   },
-  recentDate: {
+  activityTime: {
     fontSize: 13,
-    color: '#64748b',
-  },
-  priorityBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  priorityText: {
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
+    color: '#94A3B8',
+    fontWeight: '500',
+  }
 });

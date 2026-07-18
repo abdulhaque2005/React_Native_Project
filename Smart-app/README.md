@@ -29,7 +29,7 @@ A complete React Native application built for field survey and inspection. Uses 
 - **React Navigation** (Bottom Tabs & Stack)
 - **Vector Icons** (Ionicons)
 
-## 🚀 How to Run
+## How to Run
 
 1. Make sure you are in the project folder:
    ```bash
