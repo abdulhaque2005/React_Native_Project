@@ -23,6 +23,7 @@ export default function Dashboard() {
             <Text style={styles.studentName}>Abdul Haque</Text>
             <Text style={styles.studentDetail}>ID: STD-2026</Text>
             <Text style={styles.studentDetail}>Course: React Native Assignment</Text>
+            <Text style={styles.studentDetail}>Enroll Number : SUK250054CE012</Text>
           </View>
           <View style={styles.badge}>
             <Text style={styles.badgeText}>Active</Text>
