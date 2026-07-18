@@ -16,6 +16,13 @@ A complete React Native application built for field survey and inspection. Uses 
 - **Validation**: Strict validation to ensure no required fields are left blank.
 - **Alerts**: Success and Error alerts based on validation status.
 
+### Module 3 - Camera
+- **Permissions**: Prompts for Camera and Media Library permissions.
+- **Smart Camera**: Flip camera functionality (front/back) with an intuitive overlay.
+- **Photo Preview**: View the captured photo with an automatic date & time watermark.
+- **Gallery Integration**: Directly save the captured site photo to the device gallery.
+- **Actions**: Easily Retake or Delete with safety confirmation alerts.
+
 ## 🛠 Technologies Used
 - **React Native** & **Expo SDK 54** (Stable)
 - **Expo Router** for file-based routing

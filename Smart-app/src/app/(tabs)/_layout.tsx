@@ -20,6 +20,13 @@ export default function TabLayout() {
           tabBarIcon: ({ color }) => <Ionicons name="add-circle" size={24} color={color} />
         }}
       />
+      <Tabs.Screen
+        name="Camera"
+        options={{
+          title: "Camera",
+          tabBarIcon: ({ color }) => <Ionicons name="camera" size={24} color={color} />
+        }}
+      />
     </Tabs>
   );
 }
