@@ -16,9 +16,9 @@ export default function TabLayout() {
       }}
     >
       <Tabs.Screen
-        name="Dashboard"
+        name="index"
         options={{
-          title: "Home",
+          title: "Dashboard",
           tabBarIcon: ({ color, focused }) => (
             <Ionicons name={focused ? "home" : "home-outline"} size={24} color={color} />
           )
@@ -36,11 +36,20 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="Camera"
+        name="History"
         options={{
-          title: "Camera",
+          title: "History",
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? "camera" : "camera-outline"} size={26} color={color} />
+            <Ionicons name={focused ? "time" : "time-outline"} size={24} color={color} />
+          )
+        }}
+      />
+      <Tabs.Screen
+        name="Profile"
+        options={{
+          title: "Profile",
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons name={focused ? "person" : "person-outline"} size={24} color={color} />
           )
         }}
       />
@@ -57,8 +66,8 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.05,
     shadowRadius: 10,
-    height: Platform.OS === 'ios' ? 90 : 70,
-    paddingBottom: Platform.OS === 'ios' ? 25 : 8,
+    height: Platform.OS === 'ios' ? 95 : 75,
+    paddingBottom: Platform.OS === 'ios' ? 28 : 12,
     paddingTop: 8,
     position: 'absolute',
     bottom: 0,
@@ -68,10 +77,11 @@ const styles = StyleSheet.create({
   tabBarLabel: {
     fontSize: 12,
     fontWeight: '600',
-    marginTop: 2,
+    marginTop: 0,
+    marginBottom: 4,
   },
   tabBarIcon: {
-    marginTop: 4,
+    marginTop: -2,
   },
   middleButton: {
     width: 50,

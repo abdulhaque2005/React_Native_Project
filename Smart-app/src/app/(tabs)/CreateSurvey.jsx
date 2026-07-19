@@ -1,30 +1,150 @@
-import React, { useState } from 'react';
-import { Text, View, TextInput, ScrollView, Pressable, Alert, Platform, KeyboardAvoidingView, StyleSheet } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { Text, View, ScrollView, Alert, Platform, KeyboardAvoidingView, StyleSheet, Image, Pressable } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Animated, { FadeInDown } from 'react-native-reanimated';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+
+import { scheduleLocalNotification } from '../../utils/notifications';
+import { useMutation } from "convex/react";
+import { api } from "../../../convex/_generated/api";
+import { useUser } from '@clerk/clerk-expo';
+import AnimatedInput from '../../components/AnimatedInput';
+import PrimaryButton from '../../components/PrimaryButton';
 import { Ionicons } from '@expo/vector-icons';
+import * as Location from 'expo-location';
+import * as Contacts from 'expo-contacts';
+import DateTimePicker from '@react-native-community/datetimepicker';
 
 export default function CreateSurvey() {
   const [siteName, setSiteName] = useState('');
   const [clientName, setClientName] = useState('');
   const [description, setDescription] = useState('');
   const [priority, setPriority] = useState('Medium');
-  const [date, setDate] = useState('');
+  const [date, setDate] = useState(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  });
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  
+  const onChangeDate = (event, selectedDate) => {
+    setShowDatePicker(false);
+    if (selectedDate) {
+      setDate(`${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDate.getDate()).padStart(2, '0')}`);
+    }
+  };
+  const [capturedPhoto, setCapturedPhoto] = useState(null);
+  const [location, setLocation] = useState(null);
+  const [contact, setContact] = useState(null);
+  const [isFetchingLocation, setIsFetchingLocation] = useState(false);
+
+  const fetchLocation = async () => {
+    setIsFetchingLocation(true);
+    try {
+      if (Platform.OS === 'web') {
+        setLocation({ latitude: 23.223693, longitude: 72.506940 });
+        Alert.alert('Location Fetched', 'Mock location attached for web demo.');
+      } else {
+        let { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== 'granted') {
+          Alert.alert('Permission Denied', 'Allow location access to attach GPS coordinates.');
+          return;
+        }
+        let currentLoc = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced,
+        });
+        setLocation({
+          latitude: currentLoc.coords.latitude,
+          longitude: currentLoc.coords.longitude,
+        });
+        Alert.alert('Location Attached', 'GPS coordinates successfully linked to survey.');
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to fetch location.');
+    } finally {
+      setIsFetchingLocation(false);
+    }
+  };
+
+  const fetchContact = async () => {
+    try {
+      if (Platform.OS === 'web') {
+        setContact({ name: 'Akka Khan', phoneNumber: '+91 70762 83508' });
+        Alert.alert('Contact Attached', 'Mock contact attached for web demo.');
+      } else {
+        const { status } = await Contacts.requestPermissionsAsync();
+        if (status !== 'granted') {
+          Alert.alert('Permission Denied', 'Allow contacts access to attach a client.');
+          return;
+        }
+        const { data } = await Contacts.getContactsAsync({
+          fields: [Contacts.Fields.PhoneNumbers],
+          pageSize: 1,
+        });
+        if (data.length > 0) {
+          const selected = data[0];
+          const phone = selected.phoneNumbers?.[0]?.number || 'No Number';
+          setContact({ name: selected.name, phoneNumber: phone });
+          Alert.alert('Contact Attached', `${selected.name} has been linked.`);
+        } else {
+          Alert.alert('No Contacts', 'No contacts found on this device.');
+        }
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to fetch contact.');
+    }
+  };
 
   const insets = useSafeAreaInsets();
+  const router = useRouter();
+  const params = useLocalSearchParams();
   const priorities = ['High', 'Medium', 'Low'];
+  const { user } = useUser();
+  const createSurvey = useMutation(api.surveys.createSurvey);
 
-  const handleSubmit = () => {
-    if (!siteName.trim() || !clientName.trim() || !description.trim() || !date.trim()) {
+  useEffect(() => {
+    if (params.photoUri) {
+      setCapturedPhoto(params.photoUri);
+    }
+  }, [params.photoUri]);
+
+  const isFormValid = siteName.trim() && clientName.trim() && description.trim() && date.trim();
+
+  const handleSubmit = async () => {
+    if (!isFormValid) {
       Alert.alert('Validation Error', 'Please fill all the required fields marked with *');
       return;
     }
     
-    Alert.alert('Success', 'Survey has been created successfully!');
-    setSiteName('');
-    setClientName('');
-    setDescription('');
-    setPriority('Medium');
-    setDate('');
+    try {
+      await createSurvey({
+        userId: user?.id || "unknown",
+        siteName: siteName.trim(),
+        client: clientName.trim(),
+        description: description.trim(),
+        priority: priority,
+        date: date.trim(),
+        photo: capturedPhoto || undefined,
+        location: location || undefined,
+        contact: contact || undefined,
+      });
+      
+      await scheduleLocalNotification(
+        'Survey Scheduled',
+        `Inspection at ${siteName} for ${clientName} has been recorded.`
+      );
+      
+      Alert.alert('Success', 'Survey has been saved successfully!');
+      setSiteName('');
+      setClientName('');
+      setDescription('');
+      setPriority('Medium');
+      setDate('');
+      setCapturedPhoto(null);
+      setLocation(null);
+      setContact(null);
+    } catch (error) {
+      Alert.alert('Error', 'Failed to save survey. Please try again.');
+    }
   };
 
   return (
@@ -38,64 +158,136 @@ export default function CreateSurvey() {
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <View style={styles.formCard}>
+        <Animated.View entering={FadeInDown.duration(600).springify()} style={styles.formCard}>
           
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Site Name <Text style={styles.required}>*</Text></Text>
-            <View style={styles.inputWrapper}>
-              <Ionicons name="business-outline" size={20} color="#94A3B8" style={styles.inputIcon} />
-              <TextInput
-                style={styles.input}
-                placeholder="Enter site name"
-                placeholderTextColor="#94A3B8"
-                value={siteName}
-                onChangeText={setSiteName}
-              />
+          <AnimatedInput
+            label="Site Name"
+            value={siteName}
+            onChangeText={setSiteName}
+            icon="business-outline"
+            placeholder="Enter site name"
+            required={true}
+          />
+
+          <AnimatedInput
+            label="Client Name"
+            value={clientName}
+            onChangeText={setClientName}
+            icon="person-outline"
+            placeholder="Enter client name"
+            required={true}
+          />
+
+          <AnimatedInput
+            label="Description"
+            value={description}
+            onChangeText={setDescription}
+            multiline={true}
+            placeholder="Enter survey description"
+            required={true}
+          />
+
+          {Platform.OS === 'web' ? (
+            <View style={{ marginBottom: 20 }}>
+              <Text style={{ fontSize: 14, fontWeight: '600', color: '#334155', marginBottom: 8, marginLeft: 4 }}>Date <Text style={{ color: '#EF4444' }}>*</Text></Text>
+              {React.createElement('input', {
+                type: 'date',
+                value: date,
+                onChange: (e) => setDate(e.target.value),
+                style: {
+                  width: '100%',
+                  padding: '16px',
+                  fontSize: '16px',
+                  borderRadius: '12px',
+                  border: '1px solid #E2E8F0',
+                  backgroundColor: '#FFFFFF',
+                  color: '#0F172A',
+                  outline: 'none',
+                  fontFamily: 'inherit',
+                  boxSizing: 'border-box'
+                }
+              })}
             </View>
+          ) : (
+            <>
+              <Pressable onPress={() => setShowDatePicker(true)}>
+                <View pointerEvents="none">
+                  <AnimatedInput
+                    label="Date (YYYY-MM-DD)"
+                    value={date}
+                    onChangeText={() => {}}
+                    icon="calendar-outline"
+                    placeholder="Select Date"
+                    required={true}
+                  />
+                </View>
+              </Pressable>
+
+              {showDatePicker && (
+                <DateTimePicker
+                  value={new Date(date)}
+                  mode="date"
+                  display="default"
+                  onChange={onChangeDate}
+                />
+              )}
+            </>
+          )}
+
+          <View style={styles.photoSection}>
+            <Text style={styles.label}>Site Photo</Text>
+            {capturedPhoto ? (
+              <View style={styles.photoPreviewContainer}>
+                <Image source={{ uri: capturedPhoto }} style={styles.photoThumbnail} />
+                <Pressable style={styles.retakePhotoButton} onPress={() => router.push('/Camera')}>
+                  <Ionicons name="camera-reverse" size={20} color="#FFFFFF" />
+                  <Text style={styles.retakePhotoText}>Retake Photo</Text>
+                </Pressable>
+              </View>
+            ) : (
+              <Pressable style={styles.takePhotoButton} onPress={() => router.push('/Camera')}>
+                <Ionicons name="camera" size={24} color="#3B82F6" />
+                <Text style={styles.takePhotoButtonText}>Take Site Photo</Text>
+              </Pressable>
+            )}
           </View>
 
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Client Name <Text style={styles.required}>*</Text></Text>
-            <View style={styles.inputWrapper}>
-              <Ionicons name="person-outline" size={20} color="#94A3B8" style={styles.inputIcon} />
-              <TextInput
-                style={styles.input}
-                placeholder="Enter client name"
-                placeholderTextColor="#94A3B8"
-                value={clientName}
-                onChangeText={setClientName}
-              />
-            </View>
-          </View>
+          <View style={styles.photoSection}>
+            <Text style={styles.label}>Survey Attachments</Text>
+            
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 16 }}>
+              <Pressable 
+                style={[styles.attachmentButton, { marginRight: 12 }, location && styles.attachmentButtonActive]} 
+                onPress={fetchLocation}
+                disabled={isFetchingLocation}
+              >
+                <Ionicons name="location" size={20} color={location ? "#10B981" : "#64748B"} style={{ marginRight: 8 }} />
+                <Text style={[styles.attachmentText, location && {color: '#10B981'}]}>
+                  {isFetchingLocation ? 'Fetching...' : location ? 'Location Added' : 'Attach Location'}
+                </Text>
+              </Pressable>
 
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Description <Text style={styles.required}>*</Text></Text>
-            <View style={[styles.inputWrapper, styles.textAreaWrapper]}>
-              <TextInput
-                style={[styles.input, styles.textArea]}
-                placeholder="Enter survey description"
-                placeholderTextColor="#94A3B8"
-                multiline={true}
-                numberOfLines={4}
-                textAlignVertical="top"
-                value={description}
-                onChangeText={setDescription}
-              />
+              <Pressable 
+                style={[styles.attachmentButton, contact && styles.attachmentButtonActive]} 
+                onPress={fetchContact}
+              >
+                <Ionicons name="person" size={20} color={contact ? "#10B981" : "#64748B"} style={{ marginRight: 8 }} />
+                <Text style={[styles.attachmentText, contact && {color: '#10B981'}]}>
+                  {contact ? 'Contact Added' : 'Attach Contact'}
+                </Text>
+              </Pressable>
             </View>
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Date (YYYY-MM-DD) <Text style={styles.required}>*</Text></Text>
-            <View style={styles.inputWrapper}>
-              <Ionicons name="calendar-outline" size={20} color="#94A3B8" style={styles.inputIcon} />
-              <TextInput
-                style={styles.input}
-                placeholder="e.g. 2026-07-18"
-                placeholderTextColor="#94A3B8"
-                value={date}
-                onChangeText={setDate}
-              />
-            </View>
+            
+            {location && (
+              <Text style={{ fontSize: 12, color: '#64748B', marginBottom: 4 }}>
+                📍 {location.latitude.toFixed(4)}, {location.longitude.toFixed(4)}
+              </Text>
+            )}
+            {contact && (
+              <Text style={{ fontSize: 12, color: '#64748B', marginBottom: 8 }}>
+                👤 {contact.name} ({contact.phoneNumber})
+              </Text>
+            )}
           </View>
 
           <View style={styles.prioritySection}>
@@ -116,15 +308,14 @@ export default function CreateSurvey() {
             </View>
           </View>
 
-          <Pressable 
-            style={({ pressed }) => [styles.submitButton, pressed && styles.submitButtonPressed]} 
+          <PrimaryButton
+            title="Submit Survey"
+            icon="checkmark-circle"
             onPress={handleSubmit}
-          >
-            <Text style={styles.submitButtonText}>Submit Survey</Text>
-            <Ionicons name="checkmark-circle" size={22} color="#FFFFFF" style={{ marginLeft: 8 }} />
-          </Pressable>
+            disabled={!isFormValid}
+          />
 
-        </View>
+        </Animated.View>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -133,26 +324,25 @@ export default function CreateSurvey() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#F1F5F9',
   },
   header: {
     paddingHorizontal: 24,
     paddingBottom: 20,
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    backgroundColor: '#0F172A',
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
   },
   headerTitle: {
-    fontSize: 26,
+    fontSize: 28,
     fontWeight: '800',
-    color: '#0F172A',
-    letterSpacing: -0.5,
+    color: '#FFFFFF',
+    marginTop: 10,
   },
   headerSubtitle: {
     fontSize: 15,
-    fontWeight: '500',
-    color: '#64748B',
-    marginTop: 4,
+    color: '#94A3B8',
+    marginTop: 6,
   },
   scrollContent: {
     padding: 24,
@@ -161,54 +351,70 @@ const styles = StyleSheet.create({
   formCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 24,
-    padding: 24,
-    shadowColor: '#64748B',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 3,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.05,
+    shadowRadius: 15,
+    elevation: 4,
   },
-  inputGroup: {
-    marginBottom: 20,
+  photoSection: {
+    marginBottom: 24,
   },
   label: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#334155',
-    marginBottom: 8,
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#0F172A',
+    marginBottom: 12,
   },
-  required: {
-    color: '#EF4444',
+  photoPreviewContainer: {
+    height: 160,
+    borderRadius: 16,
+    overflow: 'hidden',
+    position: 'relative',
   },
-  inputWrapper: {
+  photoThumbnail: {
+    width: '100%',
+    height: '100%',
+  },
+  retakePhotoButton: {
+    position: 'absolute',
+    bottom: 12,
+    right: 12,
+    backgroundColor: 'rgba(0,0,0,0.6)',
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F8FAFC',
-    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    gap: 6,
+  },
+  retakePhotoText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  takePhotoButton: {
+    height: 120,
+    borderWidth: 2,
     borderColor: '#E2E8F0',
-    borderRadius: 12,
-    paddingHorizontal: 16,
+    borderStyle: 'dashed',
+    borderRadius: 16,
+    backgroundColor: '#F8FAFC',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
   },
-  textAreaWrapper: {
-    alignItems: 'flex-start',
-    paddingTop: 16,
-  },
-  inputIcon: {
-    marginRight: 12,
-  },
-  input: {
-    flex: 1,
-    paddingVertical: 16,
-    fontSize: 16,
-    color: '#0F172A',
-    fontWeight: '500',
-  },
-  textArea: {
-    height: 100,
-    paddingVertical: 0,
+  takePhotoButtonText: {
+    color: '#3B82F6',
+    fontSize: 15,
+    fontWeight: '600',
   },
   prioritySection: {
     marginBottom: 32,
+  },
+  required: {
+    color: '#EF4444',
   },
   priorityContainer: {
     flexDirection: 'row',
@@ -216,53 +422,24 @@ const styles = StyleSheet.create({
   },
   priorityButton: {
     flex: 1,
-    paddingVertical: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
+    height: 48,
     borderRadius: 12,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#F1F5F9',
+    justifyContent: 'center',
+    alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: 'transparent',
   },
   priorityButtonActive: {
-    backgroundColor: '#2563EB',
-    borderColor: '#2563EB',
-    shadowColor: '#2563EB',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
+    backgroundColor: '#EEF2FF',
+    borderColor: '#6366F1',
   },
   priorityText: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '600',
     color: '#64748B',
   },
   priorityTextActive: {
-    color: '#FFFFFF',
-    fontWeight: '700',
-  },
-  submitButton: {
-    backgroundColor: '#10B981',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 18,
-    borderRadius: 16,
-    shadowColor: '#10B981',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
-    elevation: 6,
-  },
-  submitButtonPressed: {
-    opacity: 0.85,
-    transform: [{ scale: 0.98 }],
-  },
-  submitButtonText: {
-    color: '#FFFFFF',
-    fontSize: 17,
-    fontWeight: 'bold',
-    letterSpacing: 0.5,
+    color: '#6366F1',
   }
 });

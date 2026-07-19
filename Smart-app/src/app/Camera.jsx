@@ -1,51 +1,57 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Text, View, Pressable, Image, Alert, ActivityIndicator, StyleSheet, Platform } from 'react-native';
+import { Text, View, Pressable, TouchableOpacity, Image, Alert, ActivityIndicator, StyleSheet, Platform, Linking } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import * as MediaLibrary from 'expo-media-library';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
+import { useIsFocused } from '@react-navigation/native';
+import * as MediaLibrary from 'expo-media-library';
 
 export default function CameraScreen() {
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
-  const [galleryPermission, setGalleryPermission] = useState(Platform.OS === 'web' ? true : null);
   
   const [photo, setPhoto] = useState(null);
   const [captureTime, setCaptureTime] = useState('');
   const [isReady, setIsReady] = useState(false);
   const [facing, setFacing] = useState('back');
+  const [zoom, setZoom] = useState(0); // Zoom level from 0 to 1
+  const [isTorchOn, setIsTorchOn] = useState(false);
   
   const cameraRef = useRef(null);
   const insets = useSafeAreaInsets();
+  const router = useRouter();
+  const isFocused = useIsFocused();
 
   useEffect(() => {
-    async function checkGallery() {
-      if (Platform.OS !== 'web') {
-        const { status } = await MediaLibrary.getPermissionsAsync();
-        setGalleryPermission(status === 'granted');
-      }
-    }
-    checkGallery();
-  }, []);
-
-  useEffect(() => {
-    if (cameraPermission?.granted && (Platform.OS === 'web' || galleryPermission)) {
+    if (cameraPermission?.granted) {
       if (!photo) {
         setIsReady(false);
         const timer = setTimeout(() => setIsReady(true), 800);
         return () => clearTimeout(timer);
       }
     }
-  }, [cameraPermission?.granted, galleryPermission, photo]);
+  }, [cameraPermission?.granted, photo]);
 
   const requestAllPermissions = async () => {
-    await requestCameraPermission();
-    if (Platform.OS !== 'web') {
-      const { status } = await MediaLibrary.requestPermissionsAsync();
-      setGalleryPermission(status === 'granted');
+    if (cameraPermission?.status === 'denied' && !cameraPermission?.canAskAgain) {
+      if (Platform.OS === 'web') {
+        window.alert("Camera permission is disabled. Please enable it in your browser settings.");
+      } else {
+        Alert.alert(
+          "Permission Required",
+          "Camera permission is disabled. Please enable it in your device settings.",
+          [
+            { text: "Cancel", style: "cancel" },
+            { text: "Open Settings", onPress: () => Linking.openSettings() }
+          ]
+        );
+      }
+      return;
     }
+    await requestCameraPermission();
   };
 
-  if (!cameraPermission || (Platform.OS !== 'web' && galleryPermission === null)) {
+  if (!cameraPermission) {
     return (
       <View style={styles.centerContainer}>
         <ActivityIndicator size="large" color="#3B82F6" />
@@ -54,16 +60,21 @@ export default function CameraScreen() {
     );
   }
 
-  if (!cameraPermission.granted || (Platform.OS !== 'web' && !galleryPermission)) {
+  if (!cameraPermission.granted) {
     return (
       <View style={styles.centerContainer}>
-        <Ionicons name="camera-outline" size={64} color="#64748B" style={{ marginBottom: 20 }} />
-        <Text style={styles.permissionText}>We need camera {Platform.OS !== 'web' ? 'and gallery ' : ''}permissions for field surveys.</Text>
+        <Ionicons name="camera-outline" size={80} color="#64748B" style={{ marginBottom: 20 }} />
+        <Text style={styles.permissionTitle}>Camera Access Required</Text>
+        <Text style={styles.permissionText}>We need camera permissions to capture field survey photos.</Text>
         <Pressable 
-          style={({ pressed }) => [styles.permissionButton, pressed && { opacity: 0.8 }]}
+          style={styles.permissionButtonFixed}
           onPress={requestAllPermissions}
         >
-          <Text style={styles.permissionButtonText}>Grant Permissions</Text>
+          <Text style={styles.permissionButtonTextFixed}>
+            {(cameraPermission?.status === 'denied' && !cameraPermission?.canAskAgain) 
+              ? "Open Device Settings" 
+              : "Grant Camera Permission"}
+          </Text>
         </Pressable>
       </View>
     );
@@ -77,8 +88,16 @@ export default function CameraScreen() {
         });
         setPhoto(photoData.uri);
         
-        if (Platform.OS !== 'web') {
-          await MediaLibrary.saveToLibraryAsync(photoData.uri);
+        // Save to gallery
+        try {
+          if (Platform.OS !== 'web') {
+            const { status } = await MediaLibrary.requestPermissionsAsync();
+            if (status === 'granted') {
+              await MediaLibrary.saveToLibraryAsync(photoData.uri);
+            }
+          }
+        } catch (err) {
+          console.warn("MediaLibrary save error:", err);
         }
         
         const now = new Date();
@@ -97,7 +116,8 @@ export default function CameraScreen() {
 
   const confirmDelete = () => {
     if (Platform.OS === 'web') {
-      if (window.confirm("Are you sure you want to delete this photo?")) {
+      const confirmDel = window.confirm("Are you sure you want to delete this photo?");
+      if (confirmDel) {
         setPhoto(null);
       }
     } else {
@@ -116,8 +136,31 @@ export default function CameraScreen() {
     setPhoto(null);
   };
 
+  const handleSavePhoto = () => {
+    router.navigate({
+      pathname: '/CreateSurvey',
+      params: { photoUri: photo }
+    });
+    // Reset camera state for next time
+    setPhoto(null);
+  };
+
   const toggleCameraFacing = () => {
     setFacing(current => (current === 'back' ? 'front' : 'back'));
+    setZoom(0); // Reset zoom when switching cameras
+    setIsTorchOn(false); // Turn off torch when switching
+  };
+
+  const toggleTorch = () => {
+    setIsTorchOn(current => !current);
+  };
+
+  const handleZoomIn = () => {
+    setZoom(current => Math.min(current + 0.1, 1));
+  };
+
+  const handleZoomOut = () => {
+    setZoom(current => Math.max(current - 0.1, 0));
   };
 
   if (photo) {
@@ -137,21 +180,32 @@ export default function CameraScreen() {
         </View>
 
         <View style={styles.actionRow}>
-          <Pressable 
-            style={({ pressed }) => [styles.actionButton, styles.retakeButton, pressed && { opacity: 0.8 }]} 
+          <TouchableOpacity 
+            style={[styles.actionButton, styles.retakeButton]} 
+            activeOpacity={0.8}
             onPress={handleRetake}
           >
-            <Ionicons name="refresh-circle" size={24} color="#3B82F6" />
+            <Ionicons name="refresh-outline" size={28} color="#E0F2FE" />
             <Text style={styles.retakeText}>Retake</Text>
-          </Pressable>
+          </TouchableOpacity>
           
-          <Pressable 
-            style={({ pressed }) => [styles.actionButton, styles.deleteButton, pressed && { opacity: 0.8 }]} 
+          <TouchableOpacity 
+            style={[styles.actionButton, styles.deleteButton]} 
+            activeOpacity={0.8}
             onPress={confirmDelete}
           >
-            <Ionicons name="trash" size={24} color="#EF4444" />
+            <Ionicons name="trash-outline" size={28} color="#FEE2E2" />
             <Text style={styles.deleteText}>Delete</Text>
-          </Pressable>
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={[styles.actionButton, styles.saveButton]} 
+            activeOpacity={0.8}
+            onPress={handleSavePhoto}
+          >
+            <Ionicons name="checkmark-outline" size={28} color="#D1FAE5" />
+            <Text style={styles.saveText}>Save</Text>
+          </TouchableOpacity>
         </View>
       </View>
     );
@@ -159,20 +213,43 @@ export default function CameraScreen() {
 
   return (
     <View style={[styles.flexContainer, { backgroundColor: '#000' }]}>
-      {!isReady ? (
+      {(!isReady || !isFocused) ? (
         <View style={styles.centerContainerDark}>
           <ActivityIndicator size="large" color="#3B82F6" />
           <Text style={styles.loadingTextDark}>Opening Camera...</Text>
         </View>
       ) : (
-        <CameraView 
-          ref={cameraRef} 
-          style={styles.flexContainer}
-          facing={facing}
-        >
-          <View style={styles.cameraOverlay}>
+        <View style={styles.flexContainer}>
+          <CameraView 
+            ref={cameraRef} 
+            style={StyleSheet.absoluteFillObject}
+            facing={facing}
+            zoom={zoom}
+            enableTorch={isTorchOn}
+          />
+          <View style={[StyleSheet.absoluteFillObject, styles.cameraOverlay]}>
             <View style={[styles.cameraHeader, { paddingTop: Platform.OS === 'android' ? insets.top + 10 : insets.top }]}>
               <Text style={styles.cameraTitle}>Site Inspection Camera</Text>
+              {facing === 'back' && (
+                <Pressable onPress={toggleTorch} style={styles.torchButton}>
+                  <Ionicons name={isTorchOn ? "flash" : "flash-off"} size={22} color={isTorchOn ? "#FDE047" : "#FFFFFF"} />
+                </Pressable>
+              )}
+            </View>
+            
+            {/* Zoom Controls */}
+            <View style={styles.zoomControlsContainer}>
+              <Pressable style={styles.zoomButton} onPress={handleZoomIn}>
+                <Ionicons name="add" size={24} color="#FFFFFF" />
+              </Pressable>
+              
+              <View style={styles.zoomIndicator}>
+                <Text style={styles.zoomText}>{(zoom * 10 + 1).toFixed(1)}x</Text>
+              </View>
+              
+              <Pressable style={styles.zoomButton} onPress={handleZoomOut}>
+                <Ionicons name="remove" size={24} color="#FFFFFF" />
+              </Pressable>
             </View>
             
             <View style={styles.cameraControls}>
@@ -193,7 +270,7 @@ export default function CameraScreen() {
               </Pressable>
             </View>
           </View>
-        </CameraView>
+        </View>
       )}
     </View>
   );
@@ -228,20 +305,32 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '500',
   },
+  permissionTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#0F172A',
+    marginBottom: 8,
+  },
   permissionText: {
     fontSize: 16,
     textAlign: 'center',
-    color: '#334155',
-    marginBottom: 24,
+    color: '#64748B',
+    marginBottom: 32,
     lineHeight: 24,
+    paddingHorizontal: 20,
   },
-  permissionButton: {
+  permissionButtonFixed: {
     backgroundColor: '#3B82F6',
-    paddingHorizontal: 24,
-    paddingVertical: 14,
-    borderRadius: 12,
+    paddingHorizontal: 32,
+    paddingVertical: 16,
+    borderRadius: 14,
+    shadowColor: '#3B82F6',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5,
   },
-  permissionButtonText: {
+  permissionButtonTextFixed: {
     color: '#FFFFFF',
     fontWeight: 'bold',
     fontSize: 16,
@@ -280,37 +369,50 @@ const styles = StyleSheet.create({
   },
   actionRow: {
     flexDirection: 'row',
-    padding: 20,
+    padding: 24,
     backgroundColor: '#0F172A',
-    gap: 12,
+    gap: 16,
     paddingBottom: Platform.OS === 'ios' ? 100 : 80,
+    justifyContent: 'space-between',
   },
   actionButton: {
     flex: 1,
     flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 14,
-    borderRadius: 12,
-    borderWidth: 1,
-    gap: 4,
+    paddingVertical: 16,
+    borderRadius: 16,
+    gap: 6,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
   },
   retakeButton: {
-    borderColor: '#3B82F6',
-    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+    backgroundColor: '#1E3A8A',
+    shadowColor: '#3B82F6',
   },
   retakeText: {
-    color: '#3B82F6',
-    fontSize: 14,
+    color: '#E0F2FE',
+    fontSize: 15,
     fontWeight: 'bold',
   },
   deleteButton: {
-    borderColor: '#EF4444',
-    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    backgroundColor: '#7F1D1D',
+    shadowColor: '#EF4444',
   },
   deleteText: {
-    color: '#EF4444',
-    fontSize: 14,
+    color: '#FEE2E2',
+    fontSize: 15,
+    fontWeight: 'bold',
+  },
+  saveButton: {
+    backgroundColor: '#064E3B',
+    shadowColor: '#10B981',
+  },
+  saveText: {
+    color: '#D1FAE5',
+    fontSize: 15,
     fontWeight: 'bold',
   },
   cameraOverlay: {
@@ -321,12 +423,48 @@ const styles = StyleSheet.create({
   cameraHeader: {
     backgroundColor: 'rgba(0,0,0,0.5)',
     padding: 16,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
   },
   cameraTitle: {
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
+  },
+  torchButton: {
+    position: 'absolute',
+    right: 20,
+    top: 16,
+    padding: 4,
+  },
+  zoomControlsContainer: {
+    position: 'absolute',
+    right: 20,
+    top: '40%',
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    borderRadius: 20,
+    padding: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+  },
+  zoomButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  zoomIndicator: {
+    paddingVertical: 8,
+  },
+  zoomText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: 'bold',
   },
   cameraControls: {
     flexDirection: 'row',
